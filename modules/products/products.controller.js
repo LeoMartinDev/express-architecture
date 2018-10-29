@@ -11,7 +11,7 @@ async function getAllProducts(request, response, next) {
     return response.status(200).send(products);
   } catch (error) {
     // TODO: define status code depending on error's type 
-    // and implement an error handler so we can simply do
+    // and implement a global error handler (as a middleware) so we can simply do
     // `return next(error)`
     return response.status(500).send(error);
   }

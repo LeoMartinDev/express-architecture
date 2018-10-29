@@ -6,7 +6,6 @@ module.exports = (schema) => {
     Joi.validate(request.body, schema, error => {
       // if validation fails, we send a Bad Request Error
       if (error) return response.status(400).send(error);
-      // else we continue
       return next();
     });
   };
