@@ -1,0 +1,1 @@
+module.exports.PRODUCT_MODEL = 'Product';
