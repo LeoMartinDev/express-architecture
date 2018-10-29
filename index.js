@@ -22,8 +22,11 @@ function bootstrap(bootstrapOrder) {
     if (!bootstrapOrder || !Array.isArray(bootstrapOrder)) {
       return reject(new Error('Missing "core.bootstrap" configuration key!'));
     }
+    // we iterate through "bootstrapOrder"
     async.eachSeries(bootstrapOrder, (fileName, next) => {
       try {
+        // require the corresponding file
+        // e.g: bootstrap/mongoose.js
         const bootstrapModule = require(path.resolve(BOOTSTRAP_PATH, fileName));
 
         if (!typeof bootstrapModule === 'function') {
@@ -42,18 +45,23 @@ function bootstrap(bootstrapOrder) {
 
 // TODO: make it asynchronous to reduce server's boot time
 function loadModules() {
+  // get a list of directories in "MODULE_PATH" directory
   fs.readdirSync(MODULES_PATH)
     .forEach(fileName => {
       if (fileName === 'index.js') return;
       const directoryPath = path.resolve(MODULES_PATH, fileName);
       if (fs.statSync(directoryPath).isDirectory()) {
+        // get a list of files in a directory
         fs.readdirSync(directoryPath).forEach(moduleFileName => {
           const moduleFilePath = path.resolve(directoryPath, moduleFileName);
           const type = moduleFileName.split('.')[1];
 
+          // if it is a controller, register it to express
           if (type === FILE_TYPES.CONTROLLER) {
             app.use(require(moduleFilePath));
-          } else if (type === FILE_TYPES.MODEL) {
+          }
+          // it is a model, simply require it so mongoose can do its magic
+          else if (type === FILE_TYPES.MODEL) {
             require(moduleFilePath);
           } else {}
         });
