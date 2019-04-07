@@ -13,10 +13,10 @@ const MODULES_PATH = path.resolve(__dirname, 'modules');
 const FILE_TYPES = {
   CONTROLLER: 'controller',
   MODEL: 'model',
+  ROUTES: 'routes',
 };
 
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json());
+const modules = {};
 
 function bootstrap(bootstrapOrder) {
   return new Promise((resolve, reject) => {
@@ -52,28 +52,82 @@ function loadModules() {
       const directoryPath = path.resolve(MODULES_PATH, fileName);
       if (fs.statSync(directoryPath).isDirectory()) {
         const moduleName = path.basename(directoryPath);
+
+        let currentModule = modules[moduleName] = {
+          models: {},
+          controllers: {},
+          routes: {},
+        };
         // get a list of files in a directory
         fs.readdirSync(directoryPath).forEach(moduleFileName => {
           const moduleFilePath = path.resolve(directoryPath, moduleFileName);
-          const type = moduleFileName.split('.')[1];
+          const [fileName, type] = moduleFileName.split('.');
 
-          // if it is a controller, register it to express
-          if (type === FILE_TYPES.CONTROLLER) {
-            let controller = require(moduleFilePath);
+          switch (type) {
+            case FILE_TYPES.CONTROLLER:
+              let controller = require(moduleFilePath);
 
-            controller.stack[0].route.stack.forEach(route => {
-              if (route.name === '<anonymous>') return;
-              console.info(`[${route.method.toUpperCase()}] ${controller.stack[0].route.path} ::: "${route.name}"`)
-            })
-            app.use(controller);
+              currentModule.controllers[fileName] = controller;
+              break;
+            case FILE_TYPES.MODEL:
+              let model = require(moduleFilePath);
+
+              currentModule.models[fileName] = model;
+              break;
+            default: break;
           }
-          // it is a model, simply require it so mongoose can do its magic
-          else if (type === FILE_TYPES.MODEL) {
-            require(moduleFilePath);
-          } else {}
+          console.log(currentModule)
+          // // if it is a controller, register it to express
+          // if (type === FILE_TYPES.CONTROLLER) {
+          //   let controller = require(moduleFilePath);
+
+          //   currentModule.controller = controller;
+          //   /*             controller.stack[0].route.stack.forEach(route => {
+          //                 if (route.name === '<anonymous>') return;
+          //                 console.info(`[${route.method.toUpperCase()}] ${controller.stack[0].route.path} ::: "${route.name}"`)
+          //               })
+          //               app.use(controller); */
+          // }
+          // // it is a model, simply require it so mongoose can do its magic
+          // else if (type === FILE_TYPES.MODEL) {
+          //   require(moduleFilePath);
+          // } else { }
         });
       }
     });
+}
+
+const VERBS = {
+  GET: 'GET',
+  POST: 'POST',
+  PUT: 'PUT',
+  DELETE: 'DELETE',
+}
+
+function loadRoutes() {
+  router.forEach(route => {
+    if (typeof router === 'string') {
+      let currentModule = modules[route];
+
+      if (!currentModule) console.warn(`"${route}" module not found!`);
+      if (!currentModule.routes) console.warn(`Cannot find router for "${route}" module!`);
+      currentModule.router = express.Router();
+      currentModule.routes.forEach(routeEntry => {
+        if (!routeEntry.middlewares || !Array.isArray(routeEntry.middlewares)) {
+          console.warn(`Invalid middlewares for "${route} : ${routeEntry.path}"!`)
+        }
+        let pathParts = routeEntry.split(' ');
+        let routeVerb = pathParts.length === 1 ? VERBS.GET : VERBS[pathParts[0]] || VERBS.GET;
+        let routeUri = pathPars.length === 1 ? pathParts[0] : pathParts[1];
+        let routeMiddlewares = routeEntry.routeMiddlewares.reduce();
+      });
+    } else {
+      app.use(route);
+    }
+  });
+/*   modules.entries().forEach(([moduleName, moduleCtx]) => {
+
+  }); */
 }
 
 async function start() {

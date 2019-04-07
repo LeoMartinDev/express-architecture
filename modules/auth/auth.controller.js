@@ -13,7 +13,7 @@ function register(request, response, next) {
 
 Router
   .route('/auth')
-  .post(DTOMiddleware(registerDTO), register);
-  .post(DTOMiddleware(loginDTO), login);
+/*   .post(DTOMiddleware(registerDTO), register)
+  .post(DTOMiddleware(loginDTO), login); */
 
 module.exports = Router;

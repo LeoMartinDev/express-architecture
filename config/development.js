@@ -1,8 +1,7 @@
 module.exports = {
   core: {
     bootstrap: [
-      'mongoose',
-      'router',
+/*       'mongoose', */
     ],
   },
   mongodbUri: 'mongodb://localhost/auth',
