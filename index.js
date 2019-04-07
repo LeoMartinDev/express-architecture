@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 
 const config = require('./config');
 const app = express();
+const router = require('./router');
 
 const BOOTSTRAP_PATH = path.resolve(__dirname, 'bootstrap');
 const MODULES_PATH = path.resolve(__dirname, 'modules');
@@ -50,6 +51,7 @@ function loadModules() {
       if (fileName === 'index.js') return;
       const directoryPath = path.resolve(MODULES_PATH, fileName);
       if (fs.statSync(directoryPath).isDirectory()) {
+        const moduleName = path.basename(directoryPath);
         // get a list of files in a directory
         fs.readdirSync(directoryPath).forEach(moduleFileName => {
           const moduleFilePath = path.resolve(directoryPath, moduleFileName);
