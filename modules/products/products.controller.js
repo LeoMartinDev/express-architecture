@@ -1,7 +1,7 @@
 const express = require('express');
 const Router = express.Router();
 const DTOMiddleware = require('../../shared/dto.middleware');
-const createProductSchema = require('./dto/create.dto');
+const createProductDTO = require('./dto/create.dto');
 const ProductService = require('./product.service');
 
 async function getAllProducts(request, response, next) {
@@ -38,6 +38,6 @@ async function createProduct(request, response, next) {
 Router
   .route('/products')
   .get(getAllProducts)
-  .post(DTOMiddleware(createProductSchema), createProduct);
+  .post(DTOMiddleware(createProductDTO), createProduct);
 
 module.exports = Router;

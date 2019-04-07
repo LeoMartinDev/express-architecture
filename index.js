@@ -43,7 +43,6 @@ function bootstrap(bootstrapOrder) {
   });
 }
 
-// TODO: make it asynchronous to reduce server's boot time
 function loadModules() {
   // get a list of directories in "MODULE_PATH" directory
   fs.readdirSync(MODULES_PATH)
@@ -58,7 +57,13 @@ function loadModules() {
 
           // if it is a controller, register it to express
           if (type === FILE_TYPES.CONTROLLER) {
-            app.use(require(moduleFilePath));
+            let controller = require(moduleFilePath);
+
+            controller.stack[0].route.stack.forEach(route => {
+              if (route.name === '<anonymous>') return;
+              console.info(`[${route.method.toUpperCase()}] ${controller.stack[0].route.path} ::: "${route.name}"`)
+            })
+            app.use(controller);
           }
           // it is a model, simply require it so mongoose can do its magic
           else if (type === FILE_TYPES.MODEL) {
