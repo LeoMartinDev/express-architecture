@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const async = require('async');
 const bodyParser = require('body-parser');
+const _ = require('lodash');
 
 const config = require('./config');
 const app = express();
@@ -54,10 +55,12 @@ function loadModules() {
         const moduleName = path.basename(directoryPath);
 
         let currentModule = modules[moduleName] = {
+          name: moduleName,
           models: {},
           controllers: {},
           routes: {},
         };
+        
         // get a list of files in a directory
         fs.readdirSync(directoryPath).forEach(moduleFileName => {
           const moduleFilePath = path.resolve(directoryPath, moduleFileName);
@@ -74,9 +77,13 @@ function loadModules() {
 
               currentModule.models[fileName] = model;
               break;
+            case FILE_TYPES.ROUTES:
+              let routes = require(moduleFilePath);
+
+              currentModule.routes = routes;
+              break;
             default: break;
           }
-          console.log(currentModule)
           // // if it is a controller, register it to express
           // if (type === FILE_TYPES.CONTROLLER) {
           //   let controller = require(moduleFilePath);
@@ -106,21 +113,60 @@ const VERBS = {
 
 function loadRoutes() {
   router.forEach(route => {
-    if (typeof router === 'string') {
+    if (typeof route === 'string') {
       let currentModule = modules[route];
-
       if (!currentModule) console.warn(`"${route}" module not found!`);
-      if (!currentModule.routes) console.warn(`Cannot find router for "${route}" module!`);
+      let prefix = null;
+      let currentRouter = currentModule.routes;
+      if (!Array.isArray(currentModule.routes)) {
+        if (!Array.isArray(currentModule.routes.routes)) {
+          console.warn(`Cannot find router for "${route}" module!`);
+          return;
+        }
+        currentRouter = currentModule.routes.routes;
+        prefix = currentModule.routes.prefix;
+      }
       currentModule.router = express.Router();
-      currentModule.routes.forEach(routeEntry => {
+      currentRouter.forEach(routeEntry => {
         if (!routeEntry.middlewares || !Array.isArray(routeEntry.middlewares)) {
           console.warn(`Invalid middlewares for "${route} : ${routeEntry.path}"!`)
         }
-        let pathParts = routeEntry.split(' ');
+        let pathParts = routeEntry.path.split(' ');
         let routeVerb = pathParts.length === 1 ? VERBS.GET : VERBS[pathParts[0]] || VERBS.GET;
-        let routeUri = pathPars.length === 1 ? pathParts[0] : pathParts[1];
-        let routeMiddlewares = routeEntry.routeMiddlewares.reduce();
+        let routeUri = pathParts.length === 1 ? pathParts[0] : pathParts[1];
+        let controllerMethod = null;
+        let routeMiddlewares = routeEntry.middlewares.reduce((acc, middleware) => {
+          if (typeof middleware === 'string') {
+            let middlewareParts = middleware.split('@');
+            let moduleName, controllerName, methodName;
+            
+            if (middlewareParts.length === 3) {
+              moduleName = middlewareParts[0];
+              controllerName = middlewareParts[1];
+              methodName = middlewareParts[2];
+            } else {
+              moduleName = currentModule.name;
+              controllerName = middlewareParts.length === 2 ?
+                middlewareParts[0] : currentModule.name;
+              methodName = middlewareParts.length === 2 ?
+                middlewareParts[1] : middlewareParts[0];
+            }
+            if (!_.has(modules, `[${moduleName}].controllers[${controllerName}][${methodName}]`)) {
+              console.warn(`Invalid router configuration!`);
+              return;
+            }
+            controllerMethod = middleware;
+            acc.push(modules[moduleName].controllers[controllerName][methodName]);
+          } else {
+            acc.push(middleware);
+          }
+          return acc;
+        }, []);
+        console.info(`[ROUTE] ${routeVerb} ${prefix ? prefix : ''}${routeUri} [${routeMiddlewares.length} middleware(s)]${controllerMethod ? ` -> ${controllerMethod}` : ''}`)
+        currentModule.router[routeVerb.toString().toLowerCase()](routeUri, ...routeMiddlewares);
       });
+      if (prefix) app.use(prefix, currentModule.router);
+      else app.use(currentModule.router);
     } else {
       app.use(route);
     }
@@ -133,6 +179,7 @@ function loadRoutes() {
 async function start() {
   await bootstrap(config.core.bootstrap);
   loadModules();
+  loadRoutes();
 }
 
 start()
