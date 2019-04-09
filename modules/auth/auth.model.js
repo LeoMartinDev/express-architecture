@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const uniqueValidator = require('mongoose-unique-validator');
-const { AUTH_STATUS, GROUPS, MODEL } = require('./auth.constants');
+const { AUTH_STATUS, GROUPS, AUTH_MODEL } = require('./auth.constants');
 
 const Schema = new mongoose.Schema({
     login: {
@@ -25,6 +25,7 @@ const Schema = new mongoose.Schema({
     },
     refreshToken: {
         type: String,
+        unique: true,
     },
     refreshTokenExpiry: {
         type: Date,
@@ -40,4 +41,4 @@ const Schema = new mongoose.Schema({
 
 Schema.plugin(uniqueValidator);
 
-module.exports = mongoose.model(MODEL, uniqueValidator);
+module.exports = mongoose.model(AUTH_MODEL, Schema);

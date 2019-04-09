@@ -5,11 +5,12 @@ const AUTH_STATUS = {
     ACTIVE: 'ACTIVE',
 }
 
-const MODEL = 'auth';
+const AUTH_MODEL = 'auth';
 
 const GROUPS = {
     ADMIN: 'ADMIN',
     USER: 'USER',
+    ALL: '*',
 };
 
 const PERMISSION_ACTIONS = {
@@ -17,9 +18,15 @@ const PERMISSION_ACTIONS = {
     DENY: 'deny',
 };
 
+const GRANT_TYPES = {
+    REFRESH_TOKEN: 'refreshToken',
+    PASSWORD: 'password',
+}
+
 module.exports = {
     AUTH_STATUS,
-    MODEL,
+    AUTH_MODEL,
     GROUPS,
     PERMISSION_ACTIONS,
+    GRANT_TYPES,
 };

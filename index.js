@@ -4,10 +4,12 @@ const fs = require('fs');
 const async = require('async');
 const bodyParser = require('body-parser');
 const _ = require('lodash');
+/* const expressAcl = require('acl'); */
 
 const config = require('./config');
 const app = express();
 const router = require('./router');
+const { GROUPS } = require('./modules/auth/auth.constants');
 
 const BOOTSTRAP_PATH = path.resolve(__dirname, 'bootstrap');
 const MODULES_PATH = path.resolve(__dirname, 'modules');
@@ -18,6 +20,10 @@ const FILE_TYPES = {
 };
 
 const modules = {};
+
+/* const acl = new expressAcl(new expressAcl.memoryBackend());
+
+acl.allow(GROUPS.ADMIN, '*', '*'); */
 
 function bootstrap(bootstrapOrder) {
   return new Promise((resolve, reject) => {
@@ -45,7 +51,10 @@ function bootstrap(bootstrapOrder) {
   });
 }
 
+const pluralize = str => str.endsWith('s') ? str : str + 's';
+
 function loadModules() {
+  let modulesPaths = {};
   // get a list of directories in "MODULE_PATH" directory
   fs.readdirSync(MODULES_PATH)
     .forEach(fileName => {
@@ -58,9 +67,9 @@ function loadModules() {
           name: moduleName,
           models: {},
           controllers: {},
-          routes: {},
+          routes: null,
         };
-        
+
         // get a list of files in a directory
         fs.readdirSync(directoryPath).forEach(moduleFileName => {
           const moduleFilePath = path.resolve(directoryPath, moduleFileName);
@@ -68,40 +77,30 @@ function loadModules() {
 
           switch (type) {
             case FILE_TYPES.CONTROLLER:
-              let controller = require(moduleFilePath);
-
-              currentModule.controllers[fileName] = controller;
+              currentModule.controllers[fileName] = moduleFilePath;
               break;
             case FILE_TYPES.MODEL:
-              let model = require(moduleFilePath);
-
-              currentModule.models[fileName] = model;
+              currentModule.models[fileName] = moduleFilePath;
               break;
             case FILE_TYPES.ROUTES:
-              let routes = require(moduleFilePath);
-
-              currentModule.routes = routes;
+              currentModule.routes = moduleFilePath;
               break;
             default: break;
           }
-          // // if it is a controller, register it to express
-          // if (type === FILE_TYPES.CONTROLLER) {
-          //   let controller = require(moduleFilePath);
-
-          //   currentModule.controller = controller;
-          //   /*             controller.stack[0].route.stack.forEach(route => {
-          //                 if (route.name === '<anonymous>') return;
-          //                 console.info(`[${route.method.toUpperCase()}] ${controller.stack[0].route.path} ::: "${route.name}"`)
-          //               })
-          //               app.use(controller); */
-          // }
-          // // it is a model, simply require it so mongoose can do its magic
-          // else if (type === FILE_TYPES.MODEL) {
-          //   require(moduleFilePath);
-          // } else { }
         });
       }
     });
+  [FILE_TYPES.MODEL, FILE_TYPES.CONTROLLER].forEach(type => {
+    Object.entries(modules).forEach(([moduleName, moduleValue]) =>
+      Object.entries(moduleValue[pluralize(type)]).forEach(([entryName, entryValue]) => {
+        moduleValue[pluralize(type)][entryName] = require(entryValue);
+      }));
+  });
+  Object.entries(modules).forEach(([moduleName, moduleValue]) => {
+    if (modules[moduleName].routes) {
+      modules[moduleName].routes = require(modules[moduleName].routes);
+    }
+  });
 }
 
 const VERBS = {
@@ -118,8 +117,8 @@ function loadRoutes() {
       if (!currentModule) console.warn(`"${route}" module not found!`);
       let prefix = null;
       let currentRouter = currentModule.routes;
-      if (!Array.isArray(currentModule.routes)) {
-        if (!Array.isArray(currentModule.routes.routes)) {
+      if (!currentModule.routes || !Array.isArray(currentModule.routes)) {
+        if (!currentModule.routes || !Array.isArray(currentModule.routes.routes)) {
           console.warn(`Cannot find router for "${route}" module!`);
           return;
         }
@@ -135,11 +134,21 @@ function loadRoutes() {
         let routeVerb = pathParts.length === 1 ? VERBS.GET : VERBS[pathParts[0]] || VERBS.GET;
         let routeUri = pathParts.length === 1 ? pathParts[0] : pathParts[1];
         let controllerMethod = null;
-        let routeMiddlewares = routeEntry.middlewares.reduce((acc, middleware) => {
+        let routeMiddlewares = routeEntry.middlewares.reduce((acc, middleware, i) => {
+/*           if (routeEntry.middlewares[i + 1]
+              && typeof routeEntry.middlewares[i + 1] === 'string'
+              && routeEntry.allow) {
+            currentModule.router.use((request, response, next) => {
+              console.log(request.method)
+              if (request.user) {
+                acl.addUserRoles(request.user._id, request.user.role);
+              }
+            }, acl.middleware(null, req => req.user._id));
+          } */
           if (typeof middleware === 'string') {
             let middlewareParts = middleware.split('@');
             let moduleName, controllerName, methodName;
-            
+
             if (middlewareParts.length === 3) {
               moduleName = middlewareParts[0];
               controllerName = middlewareParts[1];
@@ -156,6 +165,17 @@ function loadRoutes() {
               return;
             }
             controllerMethod = middleware;
+            // handle ACL
+            if (Array.isArray(routeEntry.allow)) {
+              let fullUri = prefix ? prefix + routeUri : routeUri;
+
+/*               acl.allow(routeEntry.allow, routeUri, routeVerb.toLowerCase()); */
+/*               routeEntry.allow.forEach(group => {
+                if (GROUPS[group]) {
+                  acl.allow(group, fullUri, routeVerb.toLowerCase());
+                }
+              }) */
+            }
             acc.push(modules[moduleName].controllers[controllerName][methodName]);
           } else {
             acc.push(middleware);
@@ -165,15 +185,20 @@ function loadRoutes() {
         console.info(`[ROUTE] ${routeVerb} ${prefix ? prefix : ''}${routeUri} [${routeMiddlewares.length} middleware(s)]${controllerMethod ? ` -> ${controllerMethod}` : ''}`)
         currentModule.router[routeVerb.toString().toLowerCase()](routeUri, ...routeMiddlewares);
       });
+/*       currentModule.router.use((request, response, next) => {
+        if (req.user) {
+          acl.addUserRoles(req.user._id, req.user.role);
+        }
+      }, acl.middleware(null, req => req.user._id)); */
       if (prefix) app.use(prefix, currentModule.router);
       else app.use(currentModule.router);
     } else {
       app.use(route);
     }
   });
-/*   modules.entries().forEach(([moduleName, moduleCtx]) => {
-
-  }); */
+  /*   modules.entries().forEach(([moduleName, moduleCtx]) => {
+  
+    }); */
 }
 
 async function start() {

@@ -1,5 +1,8 @@
-const DTOMiddleware = require('../../shared/dto.middleware');
 const { GROUPS, PERMISSION_ACTIONS } = require('./auth.constants');
+const registerDTO = require('./dto/register.dto');
+const loginDTO = require('./dto/login.dto');
+const DTOMiddleware = require('../../shared/dto.middleware');
+const authMiddlware = require('./auth.middleware');
 
 module.exports = {
     prefix: '/auth',
@@ -7,38 +10,23 @@ module.exports = {
         {
             path: 'POST /login',
             middlewares: [
+                DTOMiddleware(loginDTO),
                 'auth@login',
             ],
-            permissions: [
-                {
-                    group: GROUPS.USER,
-                    action: PERMISSION_ACTIONS.ALLOW,
-                }
-            ]
         },
         {
             path: 'POST /register',
             middlewares: [
+                DTOMiddleware(registerDTO),
                 'auth@register',
             ],
-            permissions: [
-                {
-                    group: GROUPS.USER,
-                    action: PERMISSION_ACTIONS.ALLOW,
-                }
-            ]
         },
         {
             path: 'GET /test',
             middlewares: [
+                authMiddlware,
                 'auth@test',
             ],
-            permissions: [
-                {
-                    group: GROUPS.USER,
-                    action: PERMISSION_ACTIONS.ALLOW,
-                }
-            ]
         },
     ]
 }

@@ -11,10 +11,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "acl": "^0.4.11",
     "async": "^2.6.1",
+    "bcrypt": "^3.0.5",
     "body-parser": "^1.18.3",
     "express": "^4.16.4",
+    "express-acl": "^2.0.5",
     "joi": "^14.0.1",
+    "jsonwebtoken": "^8.5.1",
     "lodash": "^4.17.11",
     "mongoose": "^5.3.7",
     "mongoose-unique-validator": "^2.0.2"
